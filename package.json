@@ -1,0 +1,1 @@
+{"name":"underdog-edge","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","start":"npx --yes http-server -c-1 -p 8080 ."}}

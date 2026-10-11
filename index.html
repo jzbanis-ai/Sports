@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Underdog Edge</title>
+  <meta name="description" content="Estimate win probabilities for Underdog pick'em props and the real odds and expected value of your entries." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">🎯</span> Underdog Edge</div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="board" class="active">Board</button>
+      <button role="tab" data-tab="entry">Entry <span id="entry-count" class="pill">0</span></button>
+      <button role="tab" data-tab="optimizer">Best entries</button>
+      <button role="tab" data-tab="tracker">Tracker</button>
+      <button role="tab" data-tab="settings">Settings</button>
+      <button role="tab" data-tab="guide">How it works</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- BOARD -->
+    <section id="tab-board" class="tab-panel active">
+      <div class="toolbar">
+        <button class="btn primary" id="btn-add">+ Add pick</button>
+        <button class="btn" id="btn-import">Import CSV</button>
+        <button class="btn" id="btn-fetch">Fetch live lines</button>
+        <button class="btn ghost" id="btn-demo">Load sample picks</button>
+        <span class="spacer"></span>
+        <select id="filter-sport" aria-label="Sport filter">
+          <option value="">All sports</option>
+          <option value="NFL">NFL</option>
+          <option value="CFB">College Football</option>
+          <option value="NBA">NBA</option>
+        </select>
+        <select id="filter-rating" aria-label="Rating filter">
+          <option value="">All ratings</option>
+          <option value="playable">Playable or better</option>
+          <option value="strong">Strong only</option>
+        </select>
+        <input id="filter-search" type="search" placeholder="Search player / game" />
+      </div>
+      <p class="hint" id="board-hint"></p>
+      <div id="board-table"></div>
+      <div class="toolbar end">
+        <button class="btn ghost danger" id="btn-clear">Clear board</button>
+      </div>
+    </section>
+
+    <!-- ENTRY -->
+    <section id="tab-entry" class="tab-panel">
+      <div class="grid two">
+        <div class="card">
+          <h2>Your entry</h2>
+          <div id="entry-picks"></div>
+          <div class="controls">
+            <label>Entry type
+              <select id="entry-type">
+                <option value="standard">Standard (all must hit)</option>
+                <option value="flex">Flex / Insured (partial payouts)</option>
+              </select>
+            </label>
+            <label>Stake ($)
+              <input id="entry-stake" type="number" min="0" step="1" />
+            </label>
+          </div>
+          <div class="toolbar">
+            <button class="btn primary" id="btn-log-entry">Save to tracker</button>
+            <button class="btn ghost" id="btn-clear-entry">Clear selection</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Odds &amp; value</h2>
+          <div id="entry-results"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OPTIMIZER -->
+    <section id="tab-optimizer" class="tab-panel">
+      <div class="card">
+        <h2>Find the best entries from your board</h2>
+        <p class="hint">Searches every combination of your highest-rated picks and ranks them by expected value. Uses the payout tables in Settings.</p>
+        <div class="controls">
+          <label>Sizes
+            <span class="checks" id="opt-sizes">
+              <label><input type="checkbox" value="2" checked />2</label>
+              <label><input type="checkbox" value="3" checked />3</label>
+              <label><input type="checkbox" value="4" checked />4</label>
+              <label><input type="checkbox" value="5" checked />5</label>
+              <label><input type="checkbox" value="6" />6</label>
+            </span>
+          </label>
+          <label>Entry type
+            <select id="opt-type">
+              <option value="both">Standard &amp; Flex</option>
+              <option value="standard">Standard only</option>
+              <option value="flex">Flex only</option>
+            </select>
+          </label>
+          <label>Rank by
+            <select id="opt-rank">
+              <option value="ev">Expected value (ROI)</option>
+              <option value="kelly">Bankroll growth (Kelly)</option>
+              <option value="prob">Chance to profit</option>
+            </select>
+          </label>
+          <label class="inline"><input type="checkbox" id="opt-one-per-game" /> Max one pick per game</label>
+        </div>
+        <button class="btn primary" id="btn-optimize">Find entries</button>
+        <div id="opt-results"></div>
+      </div>
+    </section>
+
+    <!-- TRACKER -->
+    <section id="tab-tracker" class="tab-panel">
+      <div id="tracker-summary" class="tiles"></div>
+      <div class="grid two">
+        <div class="card"><h2>Profit over time</h2><div id="tracker-chart"></div></div>
+        <div class="card"><h2>Calibration</h2><p class="hint">Are picks you rated at 60% actually hitting 60% of the time? Mark each pick's result to fill this in.</p><div id="tracker-calibration"></div></div>
+      </div>
+      <div class="card"><h2>Entries</h2><div id="tracker-list"></div></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab-panel">
+      <div class="grid two">
+        <div class="card">
+          <h2>Bankroll &amp; staking</h2>
+          <div class="form">
+            <label>Bankroll ($)<input type="number" data-setting="bankroll" min="0" step="1" /></label>
+            <label>Default stake ($)<input type="number" data-setting="defaultStake" min="0" step="1" /></label>
+            <label>Kelly fraction <small>0.25 = quarter Kelly (recommended)</small><input type="number" data-setting="kellyFraction" min="0" max="1" step="0.05" /></label>
+            <label>Max stake per entry (% of bankroll)<input type="number" data-setting="maxStakePct" min="0" max="100" step="0.5" /></label>
+          </div>
+          <h2>Probability model</h2>
+          <div class="form">
+            <label>Weight: sportsbook market<input type="number" data-setting="weights.market" min="0" step="0.05" /></label>
+            <label>Weight: your projection<input type="number" data-setting="weights.model" min="0" step="0.05" /></label>
+            <label>Weight: recent game logs<input type="number" data-setting="weights.history" min="0" step="0.05" /></label>
+            <label>Shrink toward 50% <small>guards against overconfidence (0–0.5)</small><input type="number" data-setting="shrink" min="0" max="0.5" step="0.05" /></label>
+            <label>Same-game correlation <small>0 = independent; 0.1–0.3 for stacked picks</small><input type="number" data-setting="rho" min="0" max="0.8" step="0.05" /></label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Payout tables</h2>
+          <p class="hint">Underdog changes payouts and shows per-pick multipliers on some lines. <strong>Check these against the app</strong> before relying on the numbers.</p>
+          <div id="payout-editor"></div>
+          <button class="btn ghost" id="btn-reset-payouts">Reset to defaults</button>
+        </div>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <h2>Live lines (The Odds API)</h2>
+          <p class="hint">Optional. Get a key at <a href="https://the-odds-api.com" target="_blank" rel="noopener">the-odds-api.com</a> (free tier available). Your key stays in this browser only.</p>
+          <div class="form">
+            <label>API key<input type="password" data-setting="apiKey" autocomplete="off" /></label>
+            <label>Regions <small>us_dfs includes Underdog; eu includes Pinnacle</small><input type="text" data-setting="regions" /></label>
+            <label>Preferred sharp books <small>comma-separated; falls back to all books</small><input type="text" data-setting="sharpBooks" /></label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Your data</h2>
+          <p class="hint">Everything is saved in this browser. Export a backup to move it to another device.</p>
+          <div class="toolbar">
+            <button class="btn" id="btn-export">Export backup</button>
+            <button class="btn" id="btn-import-backup">Import backup</button>
+            <button class="btn ghost danger" id="btn-reset-all">Reset everything</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GUIDE -->
+    <section id="tab-guide" class="tab-panel">
+      <div class="card prose" id="guide-content"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    Estimates only — no tool can guarantee winning picks. Bet what you can afford to lose.
+    Gambling problem? Call <a href="tel:18004264537">1-800-GAMBLER</a>.
+  </footer>
+
+  <!-- Pick editor -->
+  <dialog id="pick-dialog">
+    <form method="dialog" id="pick-form">
+      <h2 id="pick-dialog-title">Add pick</h2>
+      <div class="form two-col">
+        <label>Sport
+          <select name="sport" required>
+            <option value="NFL">NFL</option>
+            <option value="CFB">College Football</option>
+            <option value="NBA">NBA</option>
+          </select>
+        </label>
+        <label>Stat<select name="stat" required></select></label>
+        <label>Player<input name="player" required placeholder="e.g. Jalen Hurts" /></label>
+        <label>Team<input name="team" placeholder="e.g. PHI" /></label>
+        <label>Game<input name="game" placeholder="e.g. DAL @ PHI" /></label>
+        <label>Underdog line<input name="line" type="number" step="0.5" required /></label>
+        <label>Higher multiplier <small>if shown, else 1</small><input name="multHigher" type="number" step="0.01" min="0" /></label>
+        <label>Lower multiplier <small>if shown, else 1</small><input name="multLower" type="number" step="0.01" min="0" /></label>
+      </div>
+      <fieldset>
+        <legend>What do you know? (fill in any — more is better)</legend>
+        <div class="form two-col">
+          <label>Sportsbook Over odds <small>same line, e.g. -125</small><input name="overOdds" type="number" step="1" /></label>
+          <label>Sportsbook Under odds <small>e.g. +100</small><input name="underOdds" type="number" step="1" /></label>
+          <label>Your projection <small>expected stat value</small><input name="projection" type="number" step="0.1" /></label>
+          <label>Pick side
+            <select name="side">
+              <option value="auto">Auto (best side)</option>
+              <option value="over">Higher</option>
+              <option value="under">Lower</option>
+            </select>
+          </label>
+        </div>
+        <label>Recent game values <small>most recent first, separated by commas or spaces</small>
+          <input name="logs" placeholder="e.g. 31 22 28 19 35" />
+        </label>
+        <label>Notes<input name="note" placeholder="injuries, weather, matchup…" /></label>
+      </fieldset>
+      <div id="pick-preview" class="preview"></div>
+      <div class="toolbar end">
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save" id="pick-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- CSV import -->
+  <dialog id="import-dialog">
+    <form method="dialog">
+      <h2>Import picks from CSV</h2>
+      <p class="hint">One pick per line. Header row optional. Columns:</p>
+      <code class="block">sport,player,team,game,stat,line,over_odds,under_odds,projection,last_games,higher_mult,lower_mult</code>
+      <p class="hint">Only <b>sport, player, stat, line</b> are required. <b>stat</b> can be a name like "Rushing Yards" or "points". <b>last_games</b> uses spaces or semicolons, e.g. <code>31;22;28</code>.</p>
+      <textarea id="import-text" rows="10" placeholder="NFL,Saquon Barkley,PHI,DAL @ PHI,Rushing Yards,84.5,-120,-105,92,110;64;97;88"></textarea>
+      <p id="import-msg" class="hint"></p>
+      <div class="toolbar end">
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="import" id="import-go">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Live fetch -->
+  <dialog id="fetch-dialog">
+    <form method="dialog">
+      <h2>Fetch live Underdog lines</h2>
+      <p class="hint" id="fetch-intro"></p>
+      <div class="form two-col">
+        <label>Sport
+          <select id="fetch-sport">
+            <option value="NFL">NFL</option>
+            <option value="CFB">College Football</option>
+            <option value="NBA">NBA</option>
+          </select>
+        </label>
+        <label>&nbsp;<button type="button" class="btn" id="fetch-events">Load games</button></label>
+      </div>
+      <div id="fetch-events-list"></div>
+      <div id="fetch-markets"></div>
+      <p id="fetch-msg" class="hint"></p>
+      <div class="toolbar end">
+        <button class="btn ghost" value="cancel" formnovalidate>Close</button>
+        <button type="button" class="btn primary" id="fetch-go" disabled>Fetch props</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="backup-file" accept="application/json" hidden />
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
